@@ -25,6 +25,7 @@
 #include <linux/timer.h>
 #include <linux/kthread.h>
 #include <linux/tty.h>
+#include <linux/version.h>
 
 #define MAX_TX_BUFFERS			1
 #define XFER_BUFFER_SIZE		64
@@ -673,11 +674,19 @@ static void aurix_can_close(struct tty_struct *tty)
 	pr_info("aurix_can: aurix_can_close invoked!\n");
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 16, 0) || LINUX_VERSION_CODE == KERNEL_VERSION(5, 14, 0))
+static void aurix_can_hangup(struct tty_struct *tty)
+{
+        aurix_can_close(tty);
+        return;
+}
+#else
 static int aurix_can_hangup(struct tty_struct *tty)
 {
-	aurix_can_close(tty);
-	return 0;
+        aurix_can_close(tty);
+        return 0;
 }
+#endif
 
 static struct tty_ldisc_ops aurix_can_ldisc = {
 	.owner = THIS_MODULE,
