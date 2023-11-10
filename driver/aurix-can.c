@@ -53,7 +53,7 @@
 #define TIME_REQUEST_PERIOD         (30000) /* 30 Seconds */
 
 /* Module parameters */
-static char *aurix_can_tty_name = "ttyHS5"; /* Default TTY node is ttyHS5 */
+static char *aurix_can_tty_name = NULL;
 module_param(aurix_can_tty_name, charp, 0644);
 MODULE_PARM_DESC(aurix_can_tty_name, "TTY Node name configured for Aurix-CAN");
 
@@ -722,36 +722,39 @@ static int __init aurix_can_init(void)
 	if (status)
 		pr_err("aurix_can: Can't register line discipline\n");
 
-	ret = tty_dev_name_to_number(aurix_can_tty_name, &tty_device);
-	pr_info("aurix_can: 0x%x is dev_t & ret is %d\n", tty_device, ret);
+	if(aurix_can_tty_name != NULL) {
+		ret = tty_dev_name_to_number(aurix_can_tty_name, &tty_device);
+		pr_info("aurix_can: 0x%x is dev_t & ret is %d\n", tty_device, ret);
 
-	if(tty_device) {
-		tty_tst = tty_kopen_exclusive(tty_device);
-		pr_info("aurix_can: device opened\n");
-		pr_info("aurix_can: name: %s, major: %d, minor_start: %d & num: %d\n", 
-				tty_tst->name, tty_tst->driver->major, tty_tst->driver->minor_start, tty_tst->driver->num);
-		if(tty_tst->ops->open)
-			ret = tty_tst->ops->open(tty_tst, NULL);
-		pr_info("aurix_can: tty->ops->open invoked! with ret %d\n", ret);
+		if(tty_device) {
+			tty_tst = tty_kopen_exclusive(tty_device);
+			pr_info("aurix_can: device opened\n");
+			pr_info("aurix_can: name: %s, major: %d, minor_start: %d & num: %d\n",
+				tty_tst->name, tty_tst->driver->major, tty_tst->driver->minor_start, 
+				tty_tst->driver->num);
+			if(tty_tst->ops->open)
+				ret = tty_tst->ops->open(tty_tst, NULL);
+			pr_info("aurix_can: tty->ops->open invoked! with ret %d\n", ret);
 
-		tty_unlock(tty_tst);
-		ret = tty_set_ldisc(tty_tst, N_SLCAN);
-		if (!ret) {
-			/* success condition */
-			pr_info("aurix_can: tty attach invoked & ret is %d!\n", ret);
-			ret = tty_set_termios(tty_tst, &tty_tst_termios);
-			pr_info("aurix_can: tty set termios invoked & ret is %d!\n", ret);
-			return status;
+			tty_unlock(tty_tst);
+			ret = tty_set_ldisc(tty_tst, N_SLCAN);
+			if (!ret) {
+				/* success condition */
+				pr_info("aurix_can: tty attach invoked & ret is %d!\n", ret);
+				ret = tty_set_termios(tty_tst, &tty_tst_termios);
+				pr_info("aurix_can: tty set termios invoked & ret is %d!\n", ret);
+				return status;
+			}
+
+			pr_err("aurix_can: Failed to attach N_SLCAN to tty node\n");
+
+			tty_lock(tty_tst);
+			if(tty_tst->ops->close)
+				tty_tst->ops->close(tty_tst, NULL);
+			tty_unlock(tty_tst);
+
+			tty_kclose(tty_tst);
 		}
-
-		pr_err("aurix_can: Failed to attach N_SLCAN to tty node\n");
-
-		tty_lock(tty_tst);
-		if(tty_tst->ops->close)
-			tty_tst->ops->close(tty_tst, NULL);
-		tty_unlock(tty_tst);
-
-		tty_kclose(tty_tst);
 	}
 	return status;
 }
@@ -759,11 +762,13 @@ static int __init aurix_can_init(void)
 static void __exit aurix_can_exit(void)
 {
 	pr_info("aurix_can: aurix_can_exit invoked!\n");
-
-	unregister_candev(priv_data->netdev[0]);
-	free_candev(priv_data->netdev[0]);
-	pr_info("aurix_can: can0 unregistered!\n");
-
+  
+	if(priv_data->netdev[0]) {
+		unregister_candev(priv_data->netdev[0]);
+		free_candev(priv_data->netdev[0]);
+		pr_info("aurix_can: can0 unregistered!\n");
+	}
+  
 	tty_unregister_ldisc(&aurix_can_ldisc);
 }
 
