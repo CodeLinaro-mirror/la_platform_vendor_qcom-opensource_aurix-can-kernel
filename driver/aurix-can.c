@@ -659,11 +659,14 @@ static void aurix_can_rx(struct tty_struct *tty, const unsigned char *cp,
 
 /* 	pr_info("aurix_can: rx invoked with count: %d!!\n", count); */
 
-	memcpy(priv_data->rx_buf, cp, XFER_BUFFER_SIZE);
+	if (unlikely(count > XFER_BUFFER_SIZE))
+		count = XFER_BUFFER_SIZE;
+
+	memcpy(priv_data->rx_buf, cp, count);
 /* 	pr_info(" %x %x %x %x %x %x %x %x\n", priv_data->rx_buf[0], priv_data->rx_buf[1], priv_data->rx_buf[2], priv_data->rx_buf[3], 
 											priv_data->rx_buf[4], priv_data->rx_buf[5], priv_data->rx_buf[6], priv_data->rx_buf[7]); */
 
-	priv_data->xfer_length = XFER_BUFFER_SIZE;
+	priv_data->xfer_length = count;
 	aurix_can_process_rx(priv_data, priv_data->rx_buf);
 }
 
