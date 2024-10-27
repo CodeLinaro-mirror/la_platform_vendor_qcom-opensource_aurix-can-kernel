@@ -1,9 +1,20 @@
 # If kversion isn't defined on the rpmbuild line, define it here.
 %{!?kversion: %define kversion %(uname -r)}
 
+%{!?with_oot_debug:  %define with_oot_debug   0}
+
 %define kmod_name aurix-can
 
 %define debug_package %{nil}
+
+%if %{with_oot_debug}
+    %define kpackage kernel-automotive-debug
+    %define kversion_with_debug %{kversion}+debug
+%else
+    %define kversion_with_debug %{kversion}
+    %define kpackage kernel-automotive
+%endif
+
 
 Summary: Unified driver for Aurix CAN controllers
 Name: aurix-can
@@ -12,8 +23,10 @@ Release: r0_sa8775
 License: GPL-2.0
 URL: https://git.codelinaro.org/
 Source0:%{name}-%{version}.tar.gz
-BuildRequires:  kernel-automotive-devel-uname-r = %{kversion} make libtool gcc-g++ systemd-rpm-macros
-Requires: kernel-automotive-core-uname-r = %{kversion}
+BuildRequires: make libtool gcc-g++ systemd-rpm-macros
+BuildRequires: kernel-automotive-devel-uname-r = %{kversion_with_debug}
+Requires: %{kpackage}-core-uname-r = %{kversion_with_debug}
+
 
 %description
 This adds unified driver for Aurix CAN controllers on auto Platform. This
@@ -31,23 +44,23 @@ aurix-can kernel module; AURIX CAN controller module
 %setup -qn %{name}
 
 %build
-#%make_build
-KSRC=%{_usrsrc}/kernels/%{kversion}
+KSRC=%{_usrsrc}/kernels/%{kversion_with_debug}
 make KERNEL_SRC=${KSRC} modules
 
 %post
-depmod %{kversion}
+depmod %{kversion_with_debug}
 
 %postun
-depmod %{kversion}
+depmod %{kversion_with_debug}
 
 %install
-KSRC=%{_usrsrc}/kernels/%{kversion}
+KSRC=%{_usrsrc}/kernels/%{kversion_with_debug}
 make KERNEL_SRC=${KSRC} INSTALL_MOD_PATH=$RPM_BUILD_ROOT  modules_install
-rm -rf "$RPM_BUILD_ROOT/lib/modules/%{kversion}/modules."*
+rm -rf "$RPM_BUILD_ROOT/lib/modules/%{kversion_with_debug}/modules."*
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
 %files
-/lib/modules/%{kversion}/extra/aurix-can.ko
+%define kernel_module_path /lib/modules/%{kversion_with_debug}
+%{kernel_module_path}/extra/aurix-can.ko
